@@ -1,0 +1,12 @@
+[entryPoints]
+  [entryPoints.web]
+    address = ":80"
+  [entryPoints.websecure]
+    address = ":443"
+
+[providers.docker]
+  exposedByDefault = false # Traefik va ignorer les containers qui n'ont pas le label "traefik.enable=true"
+  network = "proxy" # Limite le scope de Traefik au network docker "proxy"
+
+[api]
+  dashboard = true # active le dashboard et l'api

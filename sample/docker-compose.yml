@@ -1,0 +1,80 @@
+version: '3.7'
+
+services:
+  # Container accessible uniquement via HTTP
+  # curl -H "Host: web.sample.local" http://127.0.0.1
+  sample-http:
+    image: containous/whoami:v1.5.0
+    expose:
+      - 80
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.sample-http.entrypoints=web" # indique à Traefik que la route n'écoute que l'entrypoint 'web' (port 80)
+      - "traefik.http.routers.sample-http.rule=Host(`web.sample.local`)" # indique à Traefik que le Host de la requête doit être 'web.sample.local'
+      - "traefik.http.routers.sample-http.service=sample-http" # associe la route au service qu'on crée en dessous 'traefik.http.services.sample-http.loadBalancer.server.port=80'
+      - "traefik.http.services.sample-http.loadBalancer.server.port=80" # on indique au service de transférer la requête sur le port 80 du container
+    networks:
+      - proxy
+
+  # Container accessible uniquement via HTTPS
+  # curl -kH "Host: secure.sample.local" https://127.0.0.1
+  sample-https:
+    image: containous/whoami:v1.5.0
+    expose:
+      - 80
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.sample-https.entrypoints=websecure" # indique à Traefik que la route n'écoute que l'entrypoint 'websecure' (port 443)
+      - "traefik.http.routers.sample-https.rule=Host(`secure.sample.local`)" # indique à Traefik que le Host de la requête doit être 'secure.sample.local'
+      - "traefik.http.routers.sample-https.service=sample-https"
+      - "traefik.http.routers.sample-https.tls=true" # Traefik utilise un certificat auto-signé
+      - "traefik.http.services.sample-https.loadBalancer.server.port=80"
+    networks:
+      - proxy
+
+  # Container qui expose plusieurs ports accessibles via plusieurs routers
+  # curl -H "Host: app1.sample.local" http://127.0.0.1
+  # curl -H "Host: app2.sample.local" http://127.0.0.1
+  sample-multiple:
+    image: containous/whoami:v1.5.0
+    expose:
+      - 80
+    labels:
+      - "traefik.enable=true"
+      # Configuration app 1
+      - "traefik.http.routers.sample-multiple-app1.entrypoints=web" # indique à Traefik que la route n'écoute que l'entrypoint 'web' (port 80)
+      - "traefik.http.routers.sample-multiple-app1.rule=Host(`app1.sample.local`)" # indique à Traefik que le Host de la requête doit être 'app1.sample.local'
+      - "traefik.http.routers.sample-multiple-app1.service=sample-multiple-app1"
+      - "traefik.http.services.sample-multiple-app1.loadBalancer.server.port=80"
+      # Configuration app 2
+      - "traefik.http.routers.sample-multiple-app2.entrypoints=web" # indique à Traefik que la route n'écoute que l'entrypoint 'web' (port 80)
+      - "traefik.http.routers.sample-multiple-app2.rule=Host(`app2.sample.local`)" # indique à Traefik que le Host de la requête doit être 'app2.sample.local'
+      - "traefik.http.routers.sample-multiple-app2.service=sample-multiple-app2"
+      - "traefik.http.services.sample-multiple-app2.loadBalancer.server.port=80" # on envoie aussi la requête vers le port 80, mais il est possible d'en utiliser un différent
+    networks:
+      - proxy
+
+  # Container qui est accessible via HTTP & HTTPS mais il redirige le trafic sur l'HTTPS
+  # curl -vH "Host: app3.sample.local" http://127.0.0.1
+  # curl -kH "Host: app3.sample.local" https://127.0.0.1
+  sample-tls-redirect:
+    image: containous/whoami:v1.5.0
+    expose:
+      - 80
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.sample-redirect-catch_http.entrypoints=web" # indique à Traefik que la route n'écoute que l'entrypoint 'web' (port 80)
+      - "traefik.http.routers.sample-redirect-catch_http.rule=Host(`app3.sample.local`)" # indique à Traefik que le Host de la requête doit être 'app3.sample.local'
+      - "traefik.http.routers.sample-redirect-catch_http.middlewares=sample-redirect-redirectscheme" # on associe un middlewares à notre router
+      - "traefik.http.middlewares.sample-redirect-redirectscheme.redirectscheme.scheme=https" # on crée un nouveau middlewares nommé sample-redirect-redirectscheme pour rediriger l'HTTP vers HTTPS
+      - "traefik.http.routers.sample-redirect-https.entrypoints=websecure" # indique à Traefik que la route n'écoute que l'entrypoint 'websecure' (port 443)
+      - "traefik.http.routers.sample-redirect-https.rule=Host(`app3.sample.local`)" # indique à Traefik que le Host de la requête doit être 'app3.sample.local'
+      - "traefik.http.routers.sample-redirect-https.service=sample-redirect-https"
+      - "traefik.http.routers.sample-redirect-https.tls=true"
+      - "traefik.http.services.sample-redirect-https.loadBalancer.server.port=80"
+    networks:
+      - proxy
+
+networks:
+  proxy:
+    external: true # utilise le network externe utilisé par Traefik

@@ -1,0 +1,24 @@
+version: '3.7'
+
+services:
+  traefik:
+    image: traefik:v2.2.0
+    container_name: traefik
+    hostname: traefik
+    ports: # partage des ports 80 et 443 sur la machine hôte
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro # Traefik utilise la socket docker pour observer les containers qui sont up / down
+      - ./traefik.toml:/etc/traefik/traefik.toml # dossier par défaut dans lequel traefik va chercher la configuration
+    labels:
+      - "traefik.enable=true" # active la gestion de ce container par Traefik
+      - "traefik.http.routers.traefik-api.rule=Host(`localhost`)" # indique à Traefik que le Host de la requête doit être 'localhost'
+      - "traefik.http.routers.traefik-api.service=api@internal" # associe la route au service interne de Traefik api@internal
+    restart: "unless-stopped"
+    networks:
+      - proxy
+
+networks:
+  proxy:
+    name: proxy
